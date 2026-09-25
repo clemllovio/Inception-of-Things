@@ -1,0 +1,35 @@
+# Vagrant.configure(2) do |config|
+# 	[...]
+# 	config.vm.box = REDACTED
+# 	config.vm.box_url = REDACTED
+
+# 	config.vm.define "cllovioS" do |control|
+# 		control.vm.hostname = "cllovioS"
+# 		control.vm.network REDACTED, ip: "192.168.56.110"
+# 		control.vm.provider REDACTED do |v|
+# 			v.customize ["modifyvm", :id, "--name", "cllovioS"]
+# 			[...]
+# 		end
+# 		config.vm.provision :shell, :inline => SHELL
+# 			[...]
+# 		SHELL
+# 			control.vm.provision "shell", path: REDACTED
+# 	end
+
+# 	config.vm.define "cllovioSW" do |control|
+# 		control.vm.hostname = "cllovioSW"
+# 		control.vm.network REDACTED, ip: "192.168.56.111"
+# 		control.vm.provider REDACTED do |v|
+# 		v.customize ["modifyvm", :id, "--name", "cllovioSW"]
+# 			[...]
+# 		end
+# 		config.vm.provision "shell", inline: <<-SHELL
+# 			[...]
+# 		SHELL
+# 		control.vm.provision "shell", path: REDACTED
+# 	end
+# end
+
+Vagrant.configure("2") do |config| # 2 version
+	
+end
