@@ -2,19 +2,41 @@
 # vi: set ft=ruby :
 
 Vagrant.configure("2") do |config| # "2" = configuration version
-  # Box settings
-  config.vm.box = "bento/ubuntu-24.04"
-
-  # Provider settings
-  config.vm.provider "virtualbox" do |vb|
-    vb.memory = 512
-    vb.cpus = 1
+  # Server
+  config.vm.define "server" do |server|
+    # Box settings
+    server.vm.box = "bento/ubuntu-24.04"
+    server.vm.hostname = "cllovioS"
+    # Provider settings
+    server.vm.provider "virtualbox" do |vb|
+      vb.name = "cllovioS"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+    
+    # Network settings
+    server.vm.network "private_network", ip: "192.168.56.110"
+    
+    # Provision settings
+    server.vm.provision "shell", path:"apache.sh"
   end
 
-  # Network settings
-  config.vm.network "private_network", ip: "192.168.56.110"
-
-  # Provision settings
-  config.vm.provision "shell", path:"apache.sh"
-
+  # Server worker
+  config.vm.define "server_worker" do |server_worker|
+    # Box settings
+    server_worker.vm.box = "bento/ubuntu-24.04"
+    server_worker.vm.hostname = "cllovioSW"
+    # Provider settings
+    server_worker.vm.provider "virtualbox" do |vb|
+      vb.name = "cllovioSW"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+    
+    # Network settings
+    server_worker.vm.network "private_network", ip: "192.168.56.111"
+    
+    # Provision settings
+    server_worker.vm.provision "shell", path:"apache.sh"
+  end
 end
