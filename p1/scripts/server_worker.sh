@@ -11,5 +11,4 @@ curl -sfL https://get.k3s.io -o k3s-install.sh
 
 K3S_URL=https://${SERVER_IP}:6443 K3S_TOKEN=${TOKEN} sh k3s-install.sh agent \
   --node-ip="${WORKER_IP}" \
-  --flannel-iface=eth1 \
   --node-label "node.kubernetes.io/type=worker"

@@ -3,7 +3,7 @@
 
 Vagrant.configure("2") do |config| # "2" = configuration version
   # Server
-  config.vm.define "server" do |server|
+  config.vm.define "cllovioS" do |server|
     # Box settings
     server.vm.box = "bento/ubuntu-24.04"
     server.vm.hostname = "cllovioS"
@@ -22,7 +22,7 @@ Vagrant.configure("2") do |config| # "2" = configuration version
   end
 
   # Server worker
-  config.vm.define "server_worker" do |server_worker|
+  config.vm.define "cllovioSW" do |server_worker|
     # Box settings
     server_worker.vm.box = "bento/ubuntu-24.04"
     server_worker.vm.hostname = "cllovioSW"
