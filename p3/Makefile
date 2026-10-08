@@ -54,6 +54,34 @@ check-cluster:
 	@echo "$(GREEN)=== K3d Cluster List ===$(RESET)"
 	@k3d cluster list
 	@echo "$(GREEN)=== Associated Docker Containers ===$(RESET)"
-	@docker ps --filter "name=k3d-iot" --format "table {{.Names}}\t{{.Image}}"
+	@docker ps --filter "name=k3d-iot"
 
-.PHONY: all install version create-cluster check-cluster
+clean-cluster:
+	@echo "Deleting K3d cluster (iot)..."
+	@if k3d cluster list | grep -q "^iot"; then \
+		k3d cluster delete iot; \
+		echo "$(GREEN)Cluster 'iot' deleted successfully.$(RESET)"; \
+	else \
+		echo "No K3d cluster named 'iot' found."; \
+	fi
+
+create-namespaces:
+	@if ! kubectl get namespace argocd >/dev/null 2>&1; then \
+		echo "Creating argocd namespace..."; \
+		kubectl create namespace argocd; \
+	else \
+		echo "Namespace argocd already exists."; \
+	fi
+	@if ! kubectl get namespace dev >/dev/null 2>&1; then \
+		echo "Creating dev namespace..."; \
+		kubectl create namespace dev; \
+	else \
+		echo "Namespace dev already exists."; \
+	fi
+	@echo "$(GREEN)Namespaces created successfully.$(RESET)"
+
+check-namespaces:
+	@echo "$(GREEN)=== Namespaces list ===$(RESET)"
+	@kubectl get namespaces
+
+.PHONY: all install version create-cluster check-cluster clean-cluster create-namespaces check-namespaces
