@@ -1,7 +1,9 @@
 #!/bin/bash
 
+# Get server IP from the arguments
 SERVER_IP=$1
-WORKER_IP="192.168.56.111"
+
+# Get the token from the shared folder
 TOKEN=$(cat /vagrant/token)
 
 curl -sfL https://get.k3s.io -o k3s-install.sh

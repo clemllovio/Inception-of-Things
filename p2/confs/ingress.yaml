@@ -1,38 +1,36 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: iot-ingress
-  annotations:
-    kubernetes.io/ingress.class: "traefik"
+  name: app-ingress
 spec:
   rules:
-  - host: app3.com
+  - host: "app1.com"
     http:
       paths:
-      - path: /
-        pathType: Prefix
+      - pathType: Prefix
+        path: "/"
         backend:
           service:
-            name: service-app3
+            name: app-one-service
             port:
               number: 80
-  - host: app1.com
+  - host: "app2.com"
     http:
       paths:
-      - path: /
-        pathType: Prefix
+      - pathType: Prefix
+        path: "/"
         backend:
           service:
-            name: service-app1
+            name: app-two-service
             port:
               number: 80
-  - host: app2.com
+  - host: "app3.com"
     http:
       paths:
-      - path: /
-        pathType: Prefix
+      - pathType: Prefix
+        path: "/"
         backend:
           service:
-            name: service-app2
+            name: app-three-service
             port:
               number: 80
