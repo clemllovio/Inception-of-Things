@@ -4,6 +4,7 @@ RESET   := \033[0m
 
 all: install version
 
+# ===================== Prerequisite intallation ======================
 install:
 	@if ! command -v docker >/dev/null 2>&1; then \
 		echo "Installing Docker..."; \
@@ -38,6 +39,7 @@ version:
 	@which kubectl >/dev/null 2>&1 && echo "kubectl :  $$(kubectl version --client 2>/dev/null | grep -i 'Client Version' | awk '{print $$3}' || kubectl version --client --output=yaml 2>/dev/null | grep gitVersion | head -n 1 | awk '{print $$2}')" || echo "$(RED)kubectl : [MISSING]$(RESET)"
 	@which k3d >/dev/null 2>&1 && echo "K3d :      $$(k3d version | head -n 1 | awk '{print $$3}')" || echo "$(RED)K3d :     [MISSING]$(RESET)"
 
+# ============================== Cluster ==============================
 create-cluster:
 	@if k3d cluster list | grep -q "^iot"; then \
 		echo "K3d cluster 'iot' already exists."; \
@@ -65,6 +67,7 @@ clean-cluster:
 		echo "No K3d cluster named 'iot' found."; \
 	fi
 
+# ============================= Namespaces ============================
 create-namespaces:
 	@if ! kubectl get namespace argocd >/dev/null 2>&1; then \
 		echo "Creating argocd namespace..."; \
@@ -79,9 +82,25 @@ create-namespaces:
 		echo "Namespace dev already exists."; \
 	fi
 	@echo "$(GREEN)Namespaces created successfully.$(RESET)"
+	@$(MAKE) --no-print-directory check-namespaces
 
 check-namespaces:
 	@echo "$(GREEN)=== Namespaces list ===$(RESET)"
 	@kubectl get namespaces
+
+# ========================= Argocd deployment =========================
+deploy-argocd:
+	@echo "Deploying Argocd on argocd namespace..."
+	@kubectl apply --server-side --force-conflicts -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+	@echo "Waiting for Argo CD server to be ready..."
+	@kubectl rollout status deployment/argocd-server -n argocd --timeout=120s
+	@echo "Retrieving initial admin password..."
+	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+
+argocd-password:
+	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+
+apply-ingress-confs:
+	@kubectl apply -f confs/ingress.yaml
 
 .PHONY: all install version create-cluster check-cluster clean-cluster create-namespaces check-namespaces
