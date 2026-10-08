@@ -2,11 +2,9 @@ GREEN   := \033[0;32m
 RED     := \033[0;31m
 RESET   := \033[0m
 
-all: setup check
+all: install version
 
-install: setup check
-
-setup:
+install:
 	@if ! command -v docker >/dev/null 2>&1; then \
 		echo "Installing Docker..."; \
 		curl --progress-bar -fsSL https://get.docker.com -o get-docker.sh; \
@@ -15,6 +13,14 @@ setup:
 		sudo usermod -aG docker $$USER >/dev/null 2>&1; \
 	else \
 		echo "Docker already installed."; \
+	fi
+	@if ! command -v kubectl >/dev/null 2>&1; then \
+		echo "Installing kubectl..."; \
+		curl -LO "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"; \
+		chmod +x kubectl; \
+		sudo mv kubectl /usr/local/bin/; \
+	else \
+		echo "kubectl already installed."; \
 	fi
 	@if ! command -v k3d >/dev/null 2>&1; then \
 		echo "Installing K3d..."; \
@@ -25,9 +31,29 @@ setup:
 		echo "K3d already installed."; \
 	fi
 	@echo "$(GREEN)All dependencies installed successfully.$(RESET)"
+	@$(MAKE) --no-print-directory version
 
-check:
-	@which docker >/dev/null 2>&1 && echo "Docker :   $$(docker --version)" || echo "$(RED)Docker :  [MISSING]$(RESET)"
-	@which k3d >/dev/null 2>&1 && echo "K3d :      $$(k3d version | head -n 1)" || echo "$(RED)K3d :     [MISSING]$(RESET)"
+version:
+	@which docker >/dev/null 2>&1 && echo "Docker :   $$(docker --version | awk '{print $$3}' | sed 's/,//')" || echo "$(RED)Docker :  [MISSING]$(RESET)"
+	@which kubectl >/dev/null 2>&1 && echo "kubectl :  $$(kubectl version --client 2>/dev/null | grep -i 'Client Version' | awk '{print $$3}' || kubectl version --client --output=yaml 2>/dev/null | grep gitVersion | head -n 1 | awk '{print $$2}')" || echo "$(RED)kubectl : [MISSING]$(RESET)"
+	@which k3d >/dev/null 2>&1 && echo "K3d :      $$(k3d version | head -n 1 | awk '{print $$3}')" || echo "$(RED)K3d :     [MISSING]$(RESET)"
 
-.PHONY: all setup check
+create-cluster:
+	@if k3d cluster list | grep -q "^iot"; then \
+		echo "K3d cluster 'iot' already exists."; \
+	else \
+		echo "Creating K3d cluster (iot)..."; \
+		k3d cluster create iot -p "8888:80@loadbalancer"; \
+		echo "$(GREEN)Cluster 'iot' created successfully.$(RESET)"; \
+	fi
+	@$(MAKE) --no-print-directory check-cluster
+
+check-cluster:
+	@echo "$(GREEN)=== Kubernetes Node Status ===$(RESET)"
+	@kubectl get nodes -o wide
+	@echo "$(GREEN)=== K3d Cluster List ===$(RESET)"
+	@k3d cluster list
+	@echo "$(GREEN)=== Associated Docker Containers ===$(RESET)"
+	@docker ps --filter "name=k3d-iot" --format "table {{.Names}}\t{{.Image}}"
+
+.PHONY: all install version create-cluster check-cluster
