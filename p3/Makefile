@@ -45,7 +45,7 @@ create-cluster:
 		echo "K3d cluster 'iot' already exists."; \
 	else \
 		echo "Creating K3d cluster (iot)..."; \
-		k3d cluster create iot -p "8888:80@loadbalancer"; \
+		k3d cluster create iot -p "8080:80@loadbalancer"; \
 		echo "$(GREEN)Cluster 'iot' created successfully.$(RESET)"; \
 	fi
 	@$(MAKE) --no-print-directory check-cluster
@@ -92,15 +92,35 @@ check-namespaces:
 deploy-argocd:
 	@echo "Deploying Argocd on argocd namespace..."
 	@kubectl apply --server-side --force-conflicts -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-	@echo "Waiting for Argo CD server to be ready..."
 	@kubectl rollout status deployment/argocd-server -n argocd --timeout=120s
-	@echo "Retrieving initial admin password..."
-	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+	@kubectl patch configmap argocd-cmd-params-cm -n argocd --type merge -p '{"data":{"server.insecure":"true"}}'
+	@kubectl rollout restart deployment argocd-server -n argocd
+	@kubectl rollout status deployment/argocd-server -n argocd --timeout=120s
 
 argocd-password:
+	@echo "Retrieving admin password..."
 	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 
 apply-ingress-confs:
 	@kubectl apply -f confs/ingress.yaml
+	@grep -q "argocd.local" /etc/hosts || echo "127.0.0.1 argocd.local app.local" | sudo tee -a /etc/hosts
 
-.PHONY: all install version create-cluster check-cluster clean-cluster create-namespaces check-namespaces
+apply-conf-application:
+	@kubectl apply -f confs/application.yaml
+	
+# ============================== Clean ===============================
+clean: clean-cluster clean-hosts
+	@rm -f get-docker.sh install_k3d.sh kubectl
+	@echo "$(GREEN)Clean done.$(RESET)"
+
+clean-hosts:
+	@echo "Cleaning /etc/hosts..."
+	@sudo sed -i '/argocd\.local/d' /etc/hosts
+
+# Delete all software installed except docker
+fclean: clean
+	@echo "Removing kubectl and k3d..."
+	@sudo rm -f /usr/local/bin/kubectl /usr/local/bin/k3d
+	@echo "$(GREEN)Full clean done.$(RESET)"
+
+.PHONY: all install version create-cluster check-cluster clean-cluster create-namespaces check-namespaces deploy-argocd argocd-password apply-ingress-confs clean clean-hosts fclean
