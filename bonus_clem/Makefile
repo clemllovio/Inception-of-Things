@@ -15,7 +15,7 @@ help: ## Show this help
 
 all: install up  ## Install tools and deploy everything
 
-up: create-cluster create-namespaces deploy-argocd apply-ingress-confs apply-conf-application ## Deploy the whole stack
+up: create-cluster create-namespaces deploy-argocd apply-ingress-confs## Deploy the whole stack
 
 re: clean up ## Delete everything and redeploy
 
@@ -103,7 +103,26 @@ apply-conf-application:  ## Create the Argo CD Application (deploys the app in d
 	@echo "Creating Argo CD Application..."
 	@kubectl apply -f confs/application.yaml
 	@echo "$(GREEN)Application created. Argo CD will now sync the app into 'dev'.$(RESET)"
-	
+
+# ========================= Deploy deployment =========================
+GITLAB_VERSION := 10.4.2
+
+deps-gitlab: ## Deploy PostgreSQL, Valkey and Garage for GitLab
+	@bash scripts/dev_dependencies.sh setup
+
+deps-status: ## Show GitLab dependencies status
+	@bash scripts/dev_dependencies.sh status
+
+deploy-gitlab: deps-gitlab ## Install GitLab with Helm
+	@helm repo add gitlab https://charts.gitlab.io/ --force-update
+	@helm repo update
+	@helm upgrade --install gitlab gitlab/gitlab -n gitlab \
+		--version $(GITLAB_VERSION) \
+		--skip-crds \
+		-f confs/gitlab-values.yaml \
+		--timeout 900s
+
+
 # ============================== Clean ===============================
 clean: clean-cluster clean-hosts ## Delete the cluster and the hosts entries
 	@printf "$(GREEN)Clean done.$(RESET)\n"
@@ -135,4 +154,4 @@ fclean: clean ## Also remove kubectl, k3d and helm (keeps docker)
 
 .PHONY: help all up re install version create-cluster check-cluster \
 	create-namespaces deploy-argocd argocd-password apply-ingress-confs \
-	apply-conf-application clean clean-cluster clean-hosts fclean
+	apply-conf-application deploy-gitlab clean clean-cluster clean-hosts fclean

@@ -1,0 +1,6 @@
+global:
+  redis:
+    host: "${VALKEY_RELEASE_NAME}"
+    auth:
+      secret: "${VALKEY_AUTH_SECRET}"
+      key: "${VALKEY_AUTH_SECRET_KEY}"
