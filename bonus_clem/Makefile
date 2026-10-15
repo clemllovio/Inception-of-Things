@@ -119,9 +119,30 @@ deploy-gitlab: deps-gitlab ## Install GitLab with Helm
 	@helm upgrade --install gitlab gitlab/gitlab -n gitlab \
 		--version $(GITLAB_VERSION) \
 		--skip-crds \
+		-f .values/dev-external.values.yaml \
 		-f confs/gitlab-values.yaml \
 		--timeout 900s
+	@$(MAKE) --no-print-directory wait-gitlab
 
+wait-gitlab: ## Waiting for gitalab to be ready
+	@echo "Waiting for migrations..."
+	@kubectl wait --for=condition=complete job -l app=migrations -n gitlab --timeout=200s
+	@echo "Waiting for webservice..."
+	@kubectl rollout status deploy/gitlab-webservice-default -n gitlab --timeout=200s
+	@echo "GitLab is ready"
+
+check-gitlab:
+	@kubectl get pods -n gitlab
+	@kubectl get ingress -n gitlab
+	@kubectl describe ingress -n gitlab | head -40
+
+gitlab-password: ## Print the GitLab root password
+	@kubectl get secret gitlab-gitlab-initial-root-password -n gitlab \
+		-ojsonpath='{.data.password}' | base64 -d; echo
+
+add-gitlab-etc-host:
+	@echo "127.0.0.1 gitlab.local" | sudo tee -a /etc/hosts >/dev/null
+	@@printf "  gitlab : http://gitlab.local:8080\n"
 
 # ============================== Clean ===============================
 clean: clean-cluster clean-hosts ## Delete the cluster and the hosts entries

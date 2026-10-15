@@ -1,49 +1,45 @@
 global:
   edition: ce
-
-  gitlabVersion: "19.4.2"
-
   hosts:
     domain: local
     https: false
     externalPort: 8080
-
-
   ingress:
     enabled: true
     class: traefik
-    provider: traefik
     configureCertmanager: false
     tls:
       enabled: false
-  
   gatewayApi:
+    enabled: false
     installEnvoy: false
-
+    configureCertmanager: false
+  registry:
+    enabled: false
+  kas:
+    enabled: false
+  
 installCertmanager: false
 
+certmanager-issuer:
+  email: admin@example.com
+
 registry:
   enabled: false
 
+traefik:
+  install: false
 nginx-ingress:
   enabled: false
-
+haproxy:
+  install: false
 prometheus:
   install: false
-
 gitlab-runner:
   install: false
-
-registry:
-  enabled: false
-
-gatewayApiResources:
-  
+gitlab-zoekt:
+  install: false
 
 gitlab:
   kas:
     enabled: false
-  gitlab-shell:
-    service:
-      type: NodePort
-      nodePort: 32022
