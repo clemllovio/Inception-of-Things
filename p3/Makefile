@@ -71,7 +71,7 @@ deploy-argocd: ## Install Argo CD (insecure mode for the ingress)
 	@echo "Deploying Argo CD in namespace 'argocd'..."
 	@kubectl apply --server-side --force-conflicts -n argocd -f  $(ARGOCD_URL)
 	@echo "Waiting for Argo CD server to be ready..."
-	@kubectl rollout status deployment/argocd-server -n argocd --timeout=120s
+	@kubectl rollout status deployment/argocd-server -n argocd --timeout=220s
 	@echo "Enabling insecure mode (TLS handled by the ingress)..."
 	@kubectl patch configmap argocd-cmd-params-cm -n argocd --type merge -p '{"data":{"server.insecure":"true"}}'
 	@kubectl rollout restart deployment argocd-server -n argocd

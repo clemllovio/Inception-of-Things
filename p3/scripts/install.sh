@@ -22,7 +22,10 @@ if ! command -v docker >/dev/null 2>&1; then
 	echo "Installing Docker..."
 	curl -fsSL https://get.docker.com -o "$TMP_DIR/get-docker.sh"
 	sudo sh "$TMP_DIR/get-docker.sh" >/dev/null 2>&1
-	sudo usermod -aG docker "$USER"
+	sudo systemctl start docker
+	sudo systemctl enable docker
+	sudo usermod -aG docker ${USER}
+	newgrp docker
 	echo "Docker installed."
 else
 	echo "Docker already installed."

@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/clemllovio/iot_cllovio
+    repoURL: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/cllovio/iot_cllovio.git
     targetRevision: HEAD
     path: confs
   destination:
