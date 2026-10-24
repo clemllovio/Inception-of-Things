@@ -1,4 +1,8 @@
 # ============================ Variables =============================
+# ============================ Variables =============================
+include config.env
+export HOSTS_FILE HOSTS_IP
+
 CLUSTER    := iot
 NAMESPACES := argocd dev
 HOSTS      := argocd.local app.local
@@ -86,14 +90,7 @@ argocd-password: ## Print the Argo CD admin password
 apply-ingress-confs: ## Apply the Argo CD ingress and update /etc/hosts
 	@echo "Applying Argo CD ingress..."
 	@kubectl apply -f confs/ingress.yaml
-	@for h in $(HOSTS); do \
-		if grep -qw "$$h" /etc/hosts; then \
-			echo "$$h already in /etc/hosts."; \
-		else \
-			echo "Adding $$h to /etc/hosts..."; \
-			echo "127.0.0.1 $$h" | sudo tee -a /etc/hosts >/dev/null; \
-		fi; \
-	done
+	@./scripts/hosts.sh add $(HOSTS)
 	@printf "$(GREEN)Ingress configured:$(RESET)\n"
 	@printf "  Argo CD : http://argocd.local:8080\n"
 	@printf "  App     : http://app.local:8080\n"
@@ -118,14 +115,7 @@ clean-cluster:
 
 clean-hosts:
 	@echo "Cleaning /etc/hosts..."
-	@for h in $(HOSTS); do \
-		if grep -qw "$$h" /etc/hosts; then \
-			echo "Removing $$h from /etc/hosts..."; \
-			sudo sed -i "/$$h/d" /etc/hosts; \
-		else \
-			echo "$$h not in /etc/hosts."; \
-		fi; \
-	done
+	@./scripts/hosts.sh remove $(HOSTS)
 
 fclean: clean ## Also remove kubectl and k3d (keeps docker)
 	@echo "Removing kubectl and k3d..."
