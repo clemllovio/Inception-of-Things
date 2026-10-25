@@ -106,6 +106,7 @@ cmd_uninstall() {
 	success "kubectl and k3d removed (docker kept)."
 }
 
+# ---------- Main ----------
 [ $# -eq 1 ] || usage
 
 action="$1"
