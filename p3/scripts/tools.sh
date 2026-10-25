@@ -28,7 +28,7 @@ kubectl_version() {
 }
 
 k3d_version() {
-	k3d version | head -n 1 | awk '{print $$3}'
+	k3d version | head -n 1 | awk 'NR==1 {print $3}'
 }
 
 print_version() {
