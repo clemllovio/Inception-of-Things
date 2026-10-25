@@ -1,5 +1,4 @@
 # ============================ Variables =============================
-# ============================ Variables =============================
 include config.env
 export HOSTS_FILE HOSTS_IP
 
@@ -25,23 +24,20 @@ re: clean up ## Delete everything and redeploy
 
 # ===================== Prerequisite intallation ======================
 install:  ## Install docker, kubectl and k3d
-	@chmod +x scripts/install.sh
-	@./scripts/install.sh
+	@./scripts/tools.sh install
 	@$(MAKE) --no-print-directory version
 
 version:  ## Show installed tool versions
-	@which docker >/dev/null 2>&1 && echo "Docker :   $$(docker --version | awk '{print $$3}' | sed 's/,//')" || echo "$(RED)Docker :  [MISSING]$(RESET)"
-	@which kubectl >/dev/null 2>&1 && echo "kubectl :  $$(kubectl version --client 2>/dev/null | grep -i 'Client Version' | awk '{print $$3}' || kubectl version --client --output=yaml 2>/dev/null | grep gitVersion | head -n 1 | awk '{print $$2}')" || echo "$(RED)kubectl : [MISSING]$(RESET)"
-	@which k3d >/dev/null 2>&1 && echo "K3d :      $$(k3d version | head -n 1 | awk '{print $$3}')" || echo "$(RED)K3d :     [MISSING]$(RESET)"
+	@./scripts/tools.sh version
 
 # ============================== Cluster ==============================
 create-cluster:  ## Create the k3d cluster
 	@if k3d cluster  get $(CLUSTER) >/dev/null 2>&1; then \
-		echo "Cluster '$(CLUSTER)' already exists."; \
+		./scripts/log.sh info "Cluster '$(CLUSTER)' already exists."; \
 	else \
-		echo "Creating cluster '$(CLUSTER)'..."; \
+		./scripts/log.sh info "Creating cluster '$(CLUSTER)'..."; \
 		k3d cluster create iot -p "8080:80@loadbalancer"; \
-		echo "$(GREEN)Cluster '$(CLUSTER)' created successfully.$(RESET)"; \
+		./scripts/log.sh success "Cluster '$(CLUSTER)' created successfully."; \
 	fi
 	@$(MAKE) --no-print-directory check-cluster
 
@@ -118,8 +114,7 @@ clean-hosts:
 	@./scripts/hosts.sh remove $(HOSTS)
 
 fclean: clean ## Also remove kubectl and k3d (keeps docker)
-	@echo "Removing kubectl and k3d..."
-	@sudo rm -f /usr/local/bin/kubectl /usr/local/bin/k3d
+	@./scripts/tools.sh uninstall
 	@printf "$(GREEN)Full clean done.$(RESET)\n"
 
 .PHONY: help all up re install version create-cluster check-cluster \
