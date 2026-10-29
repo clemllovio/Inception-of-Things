@@ -20,7 +20,7 @@ APP_DIR="${APP_DIR:-${ROOT_DIR}/app}"
 API_BASE="http://127.0.0.1:${HTTP_PORT:?HTTP_PORT is not set}"
 
 usage() {
-	error "Usage: ${0##*/} {install|password|status}"
+	error "Usage: ${0##*/} {install|password|status|repo}"
 	exit 1
 }
 
@@ -68,67 +68,67 @@ cmd_status() {
 }
 
 # ---------- repo ----------
-create_token() {
-	local token="$1"
+GITLAB_TOKEN=""
 
+create_token() {
 	kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab-toolbox -c toolbox -- \
 		gitlab-rails runner "
 		user = User.find_by_username('root')
 		user.personal_access_tokens.where(name: 'iot-bootstrap').destroy_all
 		t = user.personal_access_tokens.create!(name: 'iot-bootstrap', scopes: [:api, :write_repository], expires_at: 30.days.from_now)
-		t.set_token('${token}')
+		t.set_token('${GITLAB_TOKEN}')
 		t.save!
 		" >/dev/null
 }
 
 api() {
-	local token="$1"
-	local path="$2"
-	shift 2
+	local path="$1"
+	shift
 
-	curl -fsS -H "PRIVATE-TOKEN: ${token}" -H "Host: ${GITLAB_HOST}" \
+	curl -fsS -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" -H "Host: ${GITLAB_HOST}" \
 		"${API_BASE}/api/v4/${path}" "$@"
 }
 
 project_exists() {
-	api "$1" "projects/root%2F${GITLAB_PROJECT}" >/dev/null 2>&1
+	api "projects/root%2F${GITLAB_PROJECT}" >/dev/null 2>&1
+}
+
+repo_url() {
+	echo "http://root:${GITLAB_TOKEN}@127.0.0.1:${HTTP_PORT}/root/${GITLAB_PROJECT}.git"
 }
 
 push_code() {
-	local token="$1"
-
 	TMP_DIR="$(mktemp -d)"
-	trap cleanup EXIT
+	trap 'rm -rf "$TMP_DIR"' EXIT
 
 	cp -r "${APP_DIR}/." "$TMP_DIR"
+	
+	api "projects/root%2F${GITLAB_PROJECT}/protected_branches/main" -X DELETE >/dev/null 2>&1 || true
+
 	git -C "$TMP_DIR" init -q -b main
 	git -C "$TMP_DIR" add -A
 	git -C "$TMP_DIR" -c user.name=iot -c user.email=iot@local commit -qm "Import app"
 	git -C "$TMP_DIR" -c http.extraHeader="Host: ${GITLAB_HOST}" \
-		push -q --force \
-		"http://root:${token}@127.0.0.1:${HTTP_PORT}/root/${GITLAB_PROJECT}.git" main
+		push -q --force "$(repo_url)" main
 }
 
 cmd_repo() {
-	local token
-
 	[ -d "$APP_DIR" ] || die "App directory not found: $APP_DIR"
 
-	token="$(openssl rand -hex 20)"
+	GITLAB_TOKEN="$(openssl rand -hex 20)"
 
 	info "Creating access token..."
-	create_token "$token"
+	create_token
 
-	if project_exists "$token"; then
+	if project_exists; then
 		info "Project '${GITLAB_PROJECT}' already exists."
 	else
 		info "Creating project '${GITLAB_PROJECT}'..."
-		api "$token" projects -X POST \
-			-d "name=${GITLAB_PROJECT}" -d "visibility=public" >/dev/null
+		api projects -X POST -d "name=${GITLAB_PROJECT}" -d "visibility=public" >/dev/null
 	fi
 
 	info "Pushing application code..."
-	push_code "$token"
+	push_code
 	success "Repository ready: root/${GITLAB_PROJECT}"
 }
 
@@ -137,9 +137,10 @@ cmd_repo() {
 
 action="$1"
 
-case "$action" in
+case "$1" in
 	install)  cmd_install ;;
 	password) cmd_password ;;
 	status)   cmd_status ;;
+	repo)     cmd_repo ;;
 	*)        usage ;;
 esac
