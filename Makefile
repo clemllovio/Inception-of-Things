@@ -10,3 +10,5 @@ vagrant:
 	else \
 		echo "Vagrant already installed."; \
 	fi
+
+# vagrant box remove bento/debian-13
