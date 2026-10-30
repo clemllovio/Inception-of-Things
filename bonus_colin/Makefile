@@ -1,7 +1,7 @@
 # ============================ Variables =============================
 CLUSTER    := iot
 NAMESPACES := argocd dev gitlab
-HOSTS      := argocd.local app.local
+HOSTS      := argocd.local app.local gitlab.local
 ARGOCD_URL := https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 .DEFAULT_GOAL := help
 
@@ -10,12 +10,12 @@ RED     := \033[0;31m
 RESET   := \033[0m
 
 # ============================== Main ================================
+all: install up  ## Install tools and deploy everything
+
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-24s %s\n", $$1, $$2}'
 
-all: install up  ## Install tools and deploy everything
-
-up: create-cluster create-namespaces deploy-argocd apply-ingress-confs## Deploy the whole stack
+up: create-cluster create-namespaces install-postgres install-redis install-storage deploy-gitlab create-gitlab-repository deploy-argocd apply-ingress-confs apply-conf-application 
 
 re: clean up ## Delete everything and redeploy
 
@@ -29,7 +29,6 @@ version:  ## Show installed tool versions
 	@which docker >/dev/null 2>&1 && echo "Docker :   $$(docker --version | awk '{print $$3}' | sed 's/,//')" || echo "$(RED)Docker :  [MISSING]$(RESET)"
 	@which kubectl >/dev/null 2>&1 && echo "kubectl :  $$(kubectl version --client 2>/dev/null | grep -i 'Client Version' | awk '{print $$3}' || kubectl version --client --output=yaml 2>/dev/null | grep gitVersion | head -n 1 | awk '{print $$2}')" || echo "$(RED)kubectl : [MISSING]$(RESET)"
 	@which k3d >/dev/null 2>&1 && echo "K3d :      $$(k3d version | head -n 1 | awk '{print $$3}')" || echo "$(RED)K3d :     [MISSING]$(RESET)"
-	@which helm >/dev/null 2>&1 && echo "Helm :     $$(helm version --template='{{.Version}}')" || echo "$(RED)Helm :    [MISSING]$(RESET)"
 
 # ============================== Cluster ==============================
 create-cluster:  ## Create the k3d cluster
@@ -51,6 +50,7 @@ check-cluster: ## Show cluster status
 	@docker ps --filter "name=k3d-$(CLUSTER)"
 
 # ============================= Namespaces ============================
+
 create-namespaces: ## Create argocd and dev namespaces
 	@for ns in $(NAMESPACES); do \
 		if kubectl get namespace $$ns >/dev/null 2>&1; then \
@@ -66,6 +66,68 @@ create-namespaces: ## Create argocd and dev namespaces
 check-namespaces:
 	@echo "$(GREEN)=== Namespaces list ===$(RESET)"
 	@kubectl get namespaces
+
+
+install-postgres:
+	helm upgrade --install my-postgres bitnami/postgresql \
+		--namespace gitlab \
+		--set auth.database=gitlabhq_production \
+		--set auth.username=gitlab \
+		--set auth.password=password \
+		--set primary.resourcesPreset=none \
+		--set primary.resources.requests.memory=512Mi \
+		--set primary.resources.limits.memory=2Gi \
+		--set primary.extendedConfiguration="max_locks_per_transaction = 256" \
+		--wait --timeout 5m
+
+install-redis : #
+	helm install my-redis bitnami/redis \
+		--namespace gitlab \
+		--set auth.enabled=false
+
+install-storage: # deploy minio for db storage
+	helm upgrade --install my-minio oci://registry-1.docker.io/bitnamicharts/minio \
+		--namespace gitlab \
+		--set auth.rootUser=minioadmin \
+		--set auth.rootPassword=password \
+		--set image.registry=docker.io \
+		--set image.repository=bitnamilegacy/minio \
+		--set console.image.registry=docker.io \
+		--set console.image.repository=bitnamilegacy/minio-console \
+		--set defaultBuckets="gitlab-registry\,gitlab-artifacts\,gitlab-lfs\,gitlab-uploads\,gitlab-packages" \
+		--set volumePermissions.enabled=false \
+		--set metrics.enabled=false \
+		--set global.security.allowInsecureImages=true \
+		--set console.enabled=false \
+		--wait --timeout 5m
+
+	@printf 'provider: AWS\nregion: us-east-1\naws_access_key_id: minioadmin\naws_secret_access_key: password\naws_signature_version: 4\nhost: my-minio.gitlab.svc.cluster.local\nendpoint: "http://my-minio.gitlab.svc.cluster.local:9000"\npath_style: true\n' | \
+	kubectl create secret generic rails-storage-secret \
+		--namespace gitlab \
+		--from-file=connection=/dev/stdin \
+		--dry-run=client -o yaml | kubectl apply -f -
+
+	@printf 's3:\n  bucket: gitlab-registry\n  accesskey: minioadmin\n  secretkey: password\n  region: us-east-1\n  regionendpoint: http://my-minio.gitlab.svc.cluster.local:9000\n  v4auth: true\n  pathstyle: true\n' | \
+	kubectl create secret generic registry-storage \
+		--namespace gitlab \
+		--from-file=connection=/dev/stdin \
+		--dry-run=client -o yaml | kubectl apply -f -
+
+
+deploy-gitlab :
+	helm install gitlab gitlab/gitlab \
+		--namespace gitlab \
+		--values confs/gitlab-values.yml \
+		--timeout 10m \
+		--force-conflicts \
+
+create-gitlab-repository :
+	sh ./scripts/create_repo.sh
+
+
+
+get-gitlab-password :
+	kubectl get secret -n gitlab gitlab-gitlab-initial-root-password -o jsonpath='{.data.password}' | base64 -d; echo
 
 # ========================= Argocd deployment =========================
 deploy-argocd: ## Install Argo CD (insecure mode for the ingress)
@@ -98,31 +160,13 @@ apply-ingress-confs: ## Apply the Argo CD ingress and update /etc/hosts
 	@printf "$(GREEN)Ingress configured:$(RESET)\n"
 	@printf "  Argo CD : http://argocd.local:8080\n"
 	@printf "  App     : http://app.local:8080\n"
+	@printf "  Gitlab     : http://gitlab.local:8080\n"
 
 apply-conf-application:  ## Create the Argo CD Application (deploys the app in dev)
 	@echo "Creating Argo CD Application..."
-	@kubectl apply -f confs/application.yaml
+	@kubectl apply -f confs/application.yml
 	@echo "$(GREEN)Application created. Argo CD will now sync the app into 'dev'.$(RESET)"
-
-# ========================= Deploy deployment =========================
-GITLAB_VERSION := 10.4.2
-
-deps-gitlab: ## Deploy PostgreSQL, Valkey and Garage for GitLab
-	@bash scripts/dev_dependencies.sh setup
-
-deps-status: ## Show GitLab dependencies status
-	@bash scripts/dev_dependencies.sh status
-
-deploy-gitlab: deps-gitlab ## Install GitLab with Helm
-	@helm repo add gitlab https://charts.gitlab.io/ --force-update
-	@helm repo update
-	@helm upgrade --install gitlab gitlab/gitlab -n gitlab \
-		--version $(GITLAB_VERSION) \
-		--skip-crds \
-		-f confs/gitlab-values.yaml \
-		--timeout 900s
-
-
+	
 # ============================== Clean ===============================
 clean: clean-cluster clean-hosts ## Delete the cluster and the hosts entries
 	@printf "$(GREEN)Clean done.$(RESET)\n"
@@ -147,11 +191,11 @@ clean-hosts:
 		fi; \
 	done
 
-fclean: clean ## Also remove kubectl, k3d and helm (keeps docker)
-	@echo "Removing kubectl, k3d and helm..."
-	@sudo rm -f /usr/local/bin/kubectl /usr/local/bin/k3d /usr/local/bin/helm
+fclean: clean ## Also remove kubectl and k3d (keeps docker)
+	@echo "Removing kubectl and k3d..."
+	@sudo rm -f /usr/local/bin/kubectl /usr/local/bin/k3d
 	@printf "$(GREEN)Full clean done.$(RESET)\n"
 
 .PHONY: help all up re install version create-cluster check-cluster \
 	create-namespaces deploy-argocd argocd-password apply-ingress-confs \
-	apply-conf-application deploy-gitlab clean clean-cluster clean-hosts fclean
+	apply-conf-application clean clean-cluster clean-hosts fclean

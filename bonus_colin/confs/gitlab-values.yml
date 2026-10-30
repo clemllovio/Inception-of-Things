@@ -1,0 +1,62 @@
+global:
+  edition: ce
+  hosts:
+    domain: local
+    https: false
+    externalPort: 8080
+  ingress:
+    enabled: true
+    class: traefik
+    configureCertmanager: false
+    tls:
+      enabled: false
+  psql:
+    host: "my-postgres-postgresql"
+    port: 5432
+    username: "gitlab"
+    password:
+      secret: "my-postgres-postgresql"
+      key: "password"
+  redis:
+    host: "my-redis-master"
+    port: 6379
+    auth:
+      enabled: false
+  appConfig:
+    object_store:
+      enabled: true
+      connection:
+        secret: rails-storage-secret
+        key: connection
+    artifacts:
+      enabled: true
+      bucket: gitlab-artifacts
+    lfs:
+      enabled: true
+      bucket: gitlab-lfs
+    uploads:
+      enabled: true
+      bucket: gitlab-uploads
+    packages:
+      enabled: true
+      bucket: gitlab-packages
+gitlab:
+  migrations:
+    resources:
+      requests:
+        memory: 512Mi
+      limits:
+        memory: 2Gi
+
+
+installCertmanager: false
+certmanager-issuer:
+  email: colinproj@icloud.com
+prometheus:
+  install: false
+nginx-ingress:
+  enabled: false
+registry:
+  storage:
+    secret: registry-storage
+    key: connection

@@ -11,6 +11,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 KUBECTL_VERSION="v1.31.0"
 
+
 # ----------------------------- Docker ------------------------------
 if ! command -v docker >/dev/null 2>&1; then
 	echo "Installing Docker..."
@@ -38,20 +39,19 @@ if ! command -v k3d >/dev/null 2>&1; then
 	echo "Installing K3d..."
 	curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh -o "$TMP_DIR/install_k3d.sh"
 	bash "$TMP_DIR/install_k3d.sh" >/dev/null 2>&1
-	rm -f "$TMP_DIR/install_k3d.sh"
 else
 	echo "K3d already installed."
 fi
 
-# ------------------------------- Helm ------------------------------
+# helm
+
 if ! command -v helm >/dev/null 2>&1; then
-    echo "Installing Helm..."
-    curl -fsSL -o "$TMP_DIR/get_helm.sh" https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4
-    chmod 700 "$TMP_DIR/get_helm.sh"
-    bash "$TMP_DIR/get_helm.sh" >/dev/null 2>&1
-    rm -f "$TMP_DIR/get_helm.sh"
+	echo "Installing helm..."
+	curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4
+	chmod 700 get_helm.sh
+	./get_helm.sh
 else
-    echo "Helm already installed."
+	echo "helm already installed."
 fi
 
 echo -e "${GREEN}All dependencies installed successfully.${RESET}"

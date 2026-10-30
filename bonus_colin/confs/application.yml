@@ -6,9 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/clemllovio/iot_cllovio
+    repoURL: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/iot/iot.git
     targetRevision: HEAD
-    path: confs
+    path: "."
   destination:
     server: https://kubernetes.default.svc
     namespace: dev
