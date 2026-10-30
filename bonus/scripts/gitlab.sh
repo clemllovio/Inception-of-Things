@@ -37,14 +37,12 @@ wait_for_gitlab() {
 
 cmd_install() {
 	info "Deploying GitLab ${GITLAB_VERSION} in namespace '$GITLAB_NAMESPACE'..."
-	helm repo add gitlab https://charts.gitlab.io/ --force-update
-	helm upgrade --install gitlab gitlab/gitlab \
+	helm install gitlab gitlab/gitlab \
 		-n "$GITLAB_NAMESPACE" \
 		--version "$GITLAB_VERSION" \
-		--skip-crds \
-		-f "${ROOT_DIR}/.values/dev-external.values.yaml" \
-		-f "${ROOT_DIR}/confs/gitlab-values.yaml" \
-		--timeout "$HELM_TIMEOUT"
+		-f "${ROOT_DIR}/confs/gitlab-values.yml" \
+		--timeout "$HELM_TIMEOUT" \
+		--force-conflicts
 
 	wait_for_gitlab
 	success "GitLab is ready."

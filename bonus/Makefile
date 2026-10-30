@@ -3,7 +3,7 @@ include config.env
 export HOSTS_FILE HOSTS_IP HTTP_PORT
 
 CLUSTER    := iot
-NAMESPACES := argocd dev
+NAMESPACES := argocd dev gitlab
 HOSTS      := argocd.local app.local gitlab.local
 
 LOG := ./scripts/log.sh
@@ -50,16 +50,10 @@ argocd-password: ## Print the Argo CD admin password
 	@./scripts/argocd.sh password
 
 # ============================== GitLab ==============================
-gitlab-deps: ## Deploy PostgreSQL, Valkey and Garage for GitLab
-	@./scripts/dev_dependencies.sh setup
-
-gitlab-deps-status: ## Show GitLab dependencies status
-	@./scripts/dev_dependencies.sh status
-
-gitlab-deps-clean: ## Remove GitLab dependencies (keeps the cluster)
-	@./scripts/dev_dependencies.sh teardown
+# gitlab-deps: ## Deploy PostgreSQL, Valkey and Garage for GitLab
+# 	@./scripts/dev_dependencies.sh setup
 	
-gitlab-install: gitlab-deps ## Install GitLab with Helm
+gitlab-install: install-postgres install-redis install-storage## Install GitLab with Helm
 	@./scripts/gitlab.sh install
 
 gitlab-status: ## Show GitLab status
@@ -71,13 +65,60 @@ gitlab-password: ## Print the GitLab root password
 gitlab-repo: ## Create the GitLab project and push the app code
 	@./scripts/gitlab.sh repo
 
+install-postgres:
+	@helm repo add bitnami https://charts.bitnami.com/bitnami
+	@helm repo update
+	@helm upgrade --install my-postgres bitnami/postgresql \
+		--namespace gitlab \
+		--set auth.database=gitlabhq_production \
+		--set auth.username=gitlab \
+		--set auth.password=password \
+		--set primary.resourcesPreset=none \
+		--set primary.resources.requests.memory=512Mi \
+		--set primary.resources.limits.memory=2Gi \
+		--set primary.extendedConfiguration="max_locks_per_transaction = 256" \
+		--wait --timeout 5m
+
+install-redis : #
+	@helm install my-redis bitnami/redis \
+		--namespace gitlab \
+		--set auth.enabled=false
+
+install-storage: # deploy minio for db storage
+	@helm upgrade --install my-minio oci://registry-1.docker.io/bitnamicharts/minio \
+		--namespace gitlab \
+		--set auth.rootUser=minioadmin \
+		--set auth.rootPassword=password \
+		--set image.registry=docker.io \
+		--set image.repository=bitnamilegacy/minio \
+		--set console.image.registry=docker.io \
+		--set console.image.repository=bitnamilegacy/minio-console \
+		--set defaultBuckets="gitlab-registry\,gitlab-artifacts\,gitlab-lfs\,gitlab-uploads\,gitlab-packages" \
+		--set volumePermissions.enabled=false \
+		--set metrics.enabled=false \
+		--set global.security.allowInsecureImages=true \
+		--set console.enabled=false \
+		--wait --timeout 5m
+
+	@printf 'provider: AWS\nregion: us-east-1\naws_access_key_id: minioadmin\naws_secret_access_key: password\naws_signature_version: 4\nhost: my-minio.gitlab.svc.cluster.local\nendpoint: "http://my-minio.gitlab.svc.cluster.local:9000"\npath_style: true\n' | \
+	kubectl create secret generic rails-storage-secret \
+		--namespace gitlab \
+		--from-file=connection=/dev/stdin \
+		--dry-run=client -o yaml | kubectl apply -f -
+
+	@printf 's3:\n  bucket: gitlab-registry\n  accesskey: minioadmin\n  secretkey: password\n  region: us-east-1\n  regionendpoint: http://my-minio.gitlab.svc.cluster.local:9000\n  v4auth: true\n  pathstyle: true\n' | \
+	kubectl create secret generic registry-storage \
+		--namespace gitlab \
+		--from-file=connection=/dev/stdin \
+		--dry-run=client -o yaml | kubectl apply -f -
+
 # ======================= Ingress, hosts and app =====================
 ingress-apply: ## Apply the Argo CD ingress
 	@kubectl apply -f confs/ingress.yaml
 
 app-apply:  ## Create the Argo CD Application (deploys the app in dev)
 	@echo "Creating Argo CD Application..."
-	@kubectl apply -f confs/application.yaml
+	@kubectl apply -f confs/application.yml
 	@$(LOG) success "Application created. Argo CD will now sync the app into 'dev'."
 	
 hosts-add: ## Add the local hosts to /etc/hosts
@@ -110,6 +151,6 @@ fclean: clean ## Also remove kubectl and k3d (keeps docker)
 	cluster-create cluster-status cluster-delete \
 	namespaces-create namespaces-status \
 	argocd-install argocd-password \
-	gitlab-deps gitlab-install gitlab-status gitlab-password \
 	hosts-add hosts-remove ingress-apply app-apply \
 	clean fclean
+# 	gitlab-deps gitlab-install gitlab-status gitlab-password \
