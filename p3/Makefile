@@ -23,7 +23,6 @@ re: clean up ## Delete everything and redeploy
 # ============================== Tools ===============================
 tools-install: ## Install docker, kubectl and k3d
 	@./scripts/tools.sh install
-	@./scripts/tools.sh version
 
 tools-version:  ## Show installed tool versions
 	@./scripts/tools.sh version
@@ -39,7 +38,7 @@ cluster-status: ## Show cluster status
 namespaces-create: ## Create argocd and dev namespaces
 	@./scripts/namespaces.sh create $(NAMESPACES)
 
-namespaces-status:
+namespaces-status: ## Show the namespaces
 	@./scripts/namespaces.sh status
 
 # ============================== Argo CD =============================
@@ -50,28 +49,32 @@ argocd-password: ## Print the Argo CD admin password
 	@./scripts/argocd.sh password
 
 # ======================= Ingress, hosts and app =====================
+ingress-apply: ## Apply the Argo CD ingress
+	@$(LOG) step "Applying ingress"
+	@kubectl apply -f confs/ingress.yaml >/dev/null
+	@$(LOG) success "Ingress applied."
+
+app-apply:  ## Create the Argo CD Application (deploys the app in dev)
+	@$(LOG) step "Creating Argo CD application"
+	@kubectl apply -f confs/application.yaml >/dev/null
+	@$(LOG) success "Application created. Argo CD will now sync the app into 'dev'."
+
 hosts-add: ## Add the local hosts to /etc/hosts
+	@$(LOG) step "Configuring /etc/hosts"
 	@./scripts/hosts.sh add $(HOSTS)
 	@$(LOG) success "Hosts configured, services available at:"
 	@for h in $(HOSTS); do $(LOG) info "  http://$$h:$(HTTP_PORT)"; done
 
-ingress-apply: ## Apply the Argo CD ingress
-	@kubectl apply -f confs/ingress.yaml
-
-app-apply:  ## Create the Argo CD Application (deploys the app in dev)
-	@echo "Creating Argo CD Application..."
-	@kubectl apply -f confs/application.yaml
-	@$(LOG) success "Application created. Argo CD will now sync the app into 'dev'."
-	
 # ============================== Clean ===============================
 clean: cluster-delete hosts-remove ## Delete the cluster and the hosts entries
 	@$(LOG) success "Clean done."
 
-cluster-delete:
+cluster-delete: ## Delete the k3d cluster
+	@$(LOG) step "Deleting cluster '$(CLUSTER)'"
 	@./scripts/cluster.sh delete $(CLUSTER)
 
-hosts-remove:
-	@echo "Cleaning /etc/hosts..."
+hosts-remove: ## Remove the local hosts from /etc/hosts
+	@$(LOG) step "Removing hosts entries"
 	@./scripts/hosts.sh remove $(HOSTS)
 
 fclean: clean ## Also remove kubectl and k3d (keeps docker)
@@ -81,8 +84,8 @@ fclean: clean ## Also remove kubectl and k3d (keeps docker)
 # ============================= Phony ================================
 .PHONY: help all up re \
 	tools-install tools-version \
-	cluster-create cluster-status cluster-delete \
+	cluster-create cluster-status \
 	namespaces-create namespaces-status \
 	argocd-install argocd-password \
-	hosts-add hosts-remove ingress-apply app-apply \
-	clean fclean
+	hosts-add ingress-apply app-apply \
+	clean cluster-delete hosts-remove clean

@@ -23,16 +23,17 @@ create_namespace() {
 		info "Namespace '$ns' already exists."
 	else
 		info "Creating namespace '$ns'..."
-		kubectl create namespace "$ns"
+		run_quiet kubectl create namespace "$ns"
 	fi
 }
 
 cmd_create() {
+	step "Creating namespaces"
+	
 	for ns in "$@"; do
 		create_namespace "$ns"
 	done
 	success "Namespaces created successfully."
-	cmd_status
 }
 
 # ---------- status ----------

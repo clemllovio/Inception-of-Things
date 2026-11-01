@@ -25,11 +25,10 @@ cmd_create() {
 	if cluster_exists "$name"; then
 		info "Cluster '$name' already exists."
 	else
-		info "Creating cluster '$name'..."
-		k3d cluster create "$name" -p "${HTTP_PORT}:80@loadbalancer"
+		step "Creating k3d cluster '$name'"
+		run_quiet k3d cluster create "$name" -p "${HTTP_PORT}:80@loadbalancer"
 		success "Cluster '$name' created successfully."
 	fi
-	cmd_status "$name"
 }
 
 # ---------- delete ----------
@@ -38,7 +37,7 @@ cmd_delete() {
 
 	info "Deleting K3d cluster '$name'..."
 	if cluster_exists "$name"; then
-		k3d cluster delete "$name"
+		run_quiet k3d cluster delete "$name"
 		success "Cluster '$name' deleted successfully."
 	else
 		info "No cluster '$name' found."

@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
 usage() {
-	echo "Usage: ${0##*/} {info|success|warn|error} MESSAGE..." >&2
+	echo "Usage: ${0##*/} {info|success|warn|step|error} MESSAGE..." >&2
 	exit 1
 }
 
@@ -20,6 +20,7 @@ case "$level" in
 	info)    info "$@" ;;
 	success) success "$@" ;;
 	warn)    warn "$@" ;;
+	step)    step "$@" ;;
 	error)   error "$@" ;;
 	*)       usage ;;
 esac

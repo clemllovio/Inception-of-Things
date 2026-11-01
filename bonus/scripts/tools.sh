@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e # Exec of the cripts stops if a commanf fail
+set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
@@ -57,9 +57,9 @@ cmd_version() {
 install_docker() {
 	info "Installing Docker..."
 	curl -fsSL https://get.docker.com -o "$TMP_DIR/get-docker.sh"
-	sudo sh "$TMP_DIR/get-docker.sh" >/dev/null 2>&1
-	sudo systemctl start docker
-	sudo systemctl enable docker
+	run_quiet sudo sh "$TMP_DIR/get-docker.sh"
+	run_quiet sudo systemctl start docker
+	run_quiet sudo systemctl enable docker
 	sudo usermod -aG docker ${USER}
 	success "Docker installed."
 }
@@ -77,7 +77,7 @@ install_k3d() {
 	info "Installing K3d..."
 	curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh \
 		-o "$TMP_DIR/install_k3d.sh"
-	bash "$TMP_DIR/install_k3d.sh" >/dev/null 2>&1
+	run_quiet bash "$TMP_DIR/install_k3d.sh"
 	success "K3d installed."
 }
 
@@ -85,7 +85,7 @@ install_helm() {
 	info "Installing Helm..."
 	curl -fsSL -o "$TMP_DIR/get_helm.sh" https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4
     chmod 700 "$TMP_DIR/get_helm.sh"
-    bash "$TMP_DIR/get_helm.sh" >/dev/null 2>&1
+    run_quiet bash "$TMP_DIR/get_helm.sh"
     rm -f "$TMP_DIR/get_helm.sh"
 	success "Helm installed."
 }
@@ -105,6 +105,7 @@ cmd_install() {
 	TMP_DIR="$(mktemp -d)"
 	trap cleanup EXIT
 
+	step "Installing tools"
 	install_if_missing docker  install_docker
 	install_if_missing kubectl install_kubectl
 	install_if_missing k3d     install_k3d

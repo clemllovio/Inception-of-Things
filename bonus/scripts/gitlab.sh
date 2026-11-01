@@ -27,17 +27,18 @@ usage() {
 # ---------- install ----------
 wait_for_gitlab() {
 	info "Waiting for migrations..."
-	kubectl wait --for=condition=complete job -l app=migrations \
+	run_quiet kubectl wait --for=condition=complete job -l app=migrations \
 		-n "$GITLAB_NAMESPACE" --timeout="$MIGRATIONS_TIMEOUT"
 
 	info "Waiting for webservice..."
-	kubectl rollout status deploy/gitlab-webservice-default \
+	run_quiet kubectl rollout status deploy/gitlab-webservice-default \
 		-n "$GITLAB_NAMESPACE" --timeout="$WEBSERVICE_TIMEOUT"
 }
 
 cmd_install() {
+	step "Installing GitLab"
 	info "Deploying GitLab ${GITLAB_VERSION} in namespace '$GITLAB_NAMESPACE'..."
-	helm install gitlab gitlab/gitlab \
+	run_quiet helm install gitlab gitlab/gitlab \
 		-n "$GITLAB_NAMESPACE" \
 		--version "$GITLAB_VERSION" \
 		-f "${ROOT_DIR}/confs/gitlab-values.yml" \
@@ -111,7 +112,9 @@ push_code() {
 }
 
 cmd_repo() {
-	[ -d "$APP_DIR" ] || die "App directory not found: $APP_DIR"
+	step "Pushing the app to GitLab"
+	
+	[ -d "$APP_DIR" ] || { error "App directory not found: $APP_DIR"; exit 1; }
 
 	GITLAB_TOKEN="$(openssl rand -hex 20)"
 

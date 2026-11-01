@@ -20,22 +20,24 @@ usage() {
 wait_for_server() {
 	local timeout="$1"
 
-	kubectl rollout status deployment/argocd-server \
+	run_quiet kubectl rollout status deployment/argocd-server \
 		-n "$ARGOCD_NAMESPACE" --timeout="$timeout"
 }
 
 cmd_install() {
+	step "Installing Argo CD"
+
 	info "Deploying Argo CD in namespace '$ARGOCD_NAMESPACE'..."
-	kubectl apply --server-side --force-conflicts \
+	run_quiet kubectl apply --server-side --force-conflicts \
 		-n "$ARGOCD_NAMESPACE" -f "$ARGOCD_URL"
 
 	info "Waiting for Argo CD server to be ready..."
 	wait_for_server "$INSTALL_TIMEOUT"
 
 	info "Enabling insecure mode (TLS handled by the ingress)..."
-	kubectl patch configmap argocd-cmd-params-cm -n "$ARGOCD_NAMESPACE" \
+	run_quiet kubectl patch configmap argocd-cmd-params-cm -n "$ARGOCD_NAMESPACE" \
 		--type merge -p '{"data":{"server.insecure":"true"}}'
-	kubectl rollout restart deployment argocd-server -n "$ARGOCD_NAMESPACE"
+	run_quiet kubectl rollout restart deployment argocd-server -n "$ARGOCD_NAMESPACE"
 
 	info "Waiting for Argo CD server to restart..."
 	wait_for_server "$RESTART_TIMEOUT"
