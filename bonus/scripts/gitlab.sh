@@ -9,6 +9,7 @@ source "${SCRIPT_DIR}/lib/common.sh"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 source "${ROOT_DIR}/config.env"
 
+
 GITLAB_VERSION="${GITLAB_VERSION:?GITLAB_VERSION is not set}"
 GITLAB_NAMESPACE="${GITLAB_NAMESPACE:-gitlab}"
 HELM_TIMEOUT="${GITLAB_HELM_TIMEOUT:-900s}"
@@ -37,6 +38,12 @@ wait_for_gitlab() {
 
 cmd_install() {
 	step "Installing GitLab"
+
+	if helm status gitlab -n "$GITLAB_NAMESPACE" >/dev/null 2>&1; then
+		info "GitLab is already installed in namespace '$GITLAB_NAMESPACE'."
+		return 0
+	fi
+
 	info "Deploying GitLab ${GITLAB_VERSION} in namespace '$GITLAB_NAMESPACE'..."
 	run_quiet helm install gitlab gitlab/gitlab \
 		-n "$GITLAB_NAMESPACE" \

@@ -1,13 +1,5 @@
 # Inception-of-Things
 
-### k3s
-
-### Vagrant
-
-### k3d
-
-### Argo CD and continious integration
-
 ## Part 1
 ```
 vagrant up
@@ -48,7 +40,3 @@ kubectl get pods -n argocd
 kubectl get pods -n dev
 kubectl get applications -n argocd
 ```
-
-What is the difference between a namespace and a pod ?
-
-## Bonus part
